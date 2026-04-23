@@ -1,34 +1,800 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CrisisBridge AI</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Here for You | Crisis Support</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: { 700: '#334155', 800: '#1e293b', 900: '#0f172a' },
+                        coral: { 400: '#f87171', 500: '#ef4444', 600: '#dc2626' },
+                        sky: { 50: '#f0f9ff', 100: '#e0f2fe' },
+                        rose: { 50: '#fff1f2', 600: '#e11d48' } // For Crisis Mode
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap');
+        body { background-color: #f8fafc; color: #334155; scroll-behavior: smooth; }
+        h1, h2, h3, .heading-font { font-family: 'Outfit', sans-serif; }
+        .card-shadow { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); }
+        .chat-shadow { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08); }
+        @keyframes pulse-red { 0%, 100% { background-color: #fff1f2; } 50% { background-color: #ffe4e6; } }
+        .crisis-bg { animation: pulse-red 2s infinite; border: 1px solid #fda4af; }
+    </style>
+
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-gray-50">
-<div id="root"></div>
+<body class="antialiased selection:bg-sky-100 selection:text-navy-900">
+    <div id="root"></div>
 
-<script type="text/babel">
-const App = () => {
-  return (
-    <div className="p-10 text-center">
-      <h1 className="text-4xl font-bold mb-4">CrisisBridge AI</h1>
-      <p className="text-gray-600">Your project is now deployable 🚀</p>
-      <button 
-        className="mt-6 px-6 py-3 bg-red-500 text-white rounded-lg"
-        onClick={() => alert("SOS Triggered")}
-      >
-        SOS
-      </button>
-    </div>
-  );
-};
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
-</script>
+        const GEMINI_API_KEY = 'AIzaSyBYeixKi89R67QoIpJlQBl1tyqz1t2C1Co'; 
+
+        // --- Dictionaries (I18N) ---
+        const i18n = {
+            en: {
+                home: "Home", chat: "Gemini AI Chat", location: "Location", resources: "Resources", iot: "IoT & Security",
+                signIn: "Sign In", guest: "Continue as Guest", sos: "SOS",
+                title1: "You matter.", title2: "Help is here.",
+                subtitle: "If you or someone you know is going through a difficult time, you're not alone. Support is available 24/7.",
+                getHelp: "Get Help Now", learnMore: "Learn More ↓",
+                crisisTitle: "In a crisis? Get immediate help.", crisisSub: "You are not alone. We are here for you.",
+                call: "Call 988", text: "Text HOME to 741741",
+                navHospital: "Navigate to Hospital", online: "Online", offline: "Offline Mode",
+                offlineMsg: "You are currently offline. Basic emergency steps and cached data are available.",
+                micOn: "Listening...", micOff: "Use Voice",
+                crisisAlert: "CRISIS MODE ACTIVE: Please call emergency services immediately if you are in danger."
+            },
+            hi: {
+                home: "होम", chat: "जेमिनी एआई चैट", location: "स्थान", resources: "संसाधन", iot: "IoT और सुरक्षा",
+                signIn: "साइन इन", guest: "अतिथि के रूप में जारी रखें", sos: "एसओएस",
+                title1: "आप महत्वपूर्ण हैं।", title2: "मदद यहाँ है।",
+                subtitle: "यदि आप या आपका कोई परिचित कठिन समय से गुजर रहा है, तो आप अकेले नहीं हैं। सहायता 24/7 उपलब्ध है।",
+                getHelp: "अभी मदद लें", learnMore: "और जानें ↓",
+                crisisTitle: "संकट में हैं? तत्काल मदद लें।", crisisSub: "आप अकेले नहीं हैं। हम आपके लिए यहाँ हैं।",
+                call: "988 पर कॉल करें", text: "741741 पर HOME टेक्स्ट करें",
+                navHospital: "अस्पताल जाएँ", online: "ऑनलाइन", offline: "ऑफ़लाइन मोड",
+                offlineMsg: "आप अभी ऑफ़लाइन हैं। बुनियादी आपातकालीन कदम और सहेजा गया डेटा उपलब्ध है।",
+                micOn: "सुन रहा हूँ...", micOff: "आवाज़ का प्रयोग करें",
+                crisisAlert: "संकट मोड सक्रिय: यदि आप खतरे में हैं तो कृपया तुरंत आपातकालीन सेवाओं को कॉल करें।"
+            }
+        };
+
+        // --- Icons ---
+        const Icons = {
+            Heart: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-navy-800"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+            Phone: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
+            Message: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+            Book: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+            Send: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+            MapPin: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+            Sparkles: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>,
+            Mic: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>,
+            Alert: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>,
+            Users: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            ChevronRight: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6"/></svg>,
+            Search: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        };
+
+        // --- Logic: Crisis Detection ---
+        const analyzeCrisis = (text) => {
+            const lower = text.toLowerCase();
+            const injury = /blood|bleed|broken|cut|heart attack|stroke|breathe|choking|unconscious|faint|hurt/i.test(lower);
+            const selfHarm = /suicide|kill myself|end it|die|jump/i.test(lower);
+            const panic = /panic|anxiety|overwhelmed|scared|terrified|shaking/i.test(lower);
+            
+            if(selfHarm) return 'self_harm';
+            if(injury) return 'injury';
+            if(panic) return 'panic';
+            return null;
+        }
+
+        // --- Auth Modal & Guest Mode ---
+        const AuthModal = ({ isOpen, onClose, setUser, lang }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const t = i18n[lang];
+
+            if (!isOpen) return null;
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const userObj = { email, type: 'user' };
+                localStorage.setItem('currentUser', JSON.stringify(userObj));
+                setUser(userObj);
+                onClose();
+            };
+
+            const handleGuest = () => {
+                const guestObj = { email: 'Guest User', type: 'guest' };
+                localStorage.setItem('currentUser', JSON.stringify(guestObj));
+                setUser(guestObj);
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-navy-900/40 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-md p-8 rounded-2xl card-shadow relative">
+                        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-navy-900">✕</button>
+                        <h2 className="text-2xl font-bold text-navy-900 mb-6 heading-font">{t.signIn}</h2>
+                        
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" required className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-1 focus:ring-navy-500" />
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:ring-1 focus:ring-navy-500" />
+                            <button type="submit" className="w-full bg-navy-800 text-white py-3 rounded-lg font-bold hover:bg-navy-700">{t.signIn}</button>
+                        </form>
+                        <div className="my-4 text-center text-sm text-slate-400">OR</div>
+                        <button onClick={handleGuest} className="w-full bg-sky-50 text-navy-800 border border-sky-100 py-3 rounded-lg font-bold hover:bg-sky-100">{t.guest}</button>
+                        <div className="text-center mt-3 text-xs text-slate-400">Chats are strictly confidential.</div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- SOS Modal & Trusted Contacts ---
+        const SOSModal = ({ isOpen, onClose, location }) => {
+            const [contacts, setContacts] = useState([]);
+            const [newContact, setNewContact] = useState('');
+            const [sending, setSending] = useState(false);
+            const [sent, setSent] = useState(false);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('trustedContacts');
+                if(saved) setContacts(JSON.parse(saved));
+            }, []);
+
+            const addContact = (e) => {
+                e.preventDefault();
+                if(!newContact) return;
+                const updated = [...contacts, newContact];
+                setContacts(updated);
+                localStorage.setItem('trustedContacts', JSON.stringify(updated));
+                setNewContact('');
+            };
+
+            const triggerSOS = () => {
+                setSending(true);
+                setTimeout(() => {
+                    setSending(false);
+                    setSent(true);
+                    let locStr = location ? `https://maps.google.com/?q=${location.lat},${location.lng}` : 'Location unavailable';
+                    alert(`Simulated SMS Sent to Contacts:\n"EMERGENCY SOS: I need help immediately. My location: ${locStr}"`);
+                }, 1500);
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-red-900/40 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-md p-8 rounded-2xl card-shadow relative">
+                        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400">✕</button>
+                        <div className="flex items-center gap-3 mb-6 text-red-600">
+                            <Icons.Alert /> <h2 className="text-2xl font-bold heading-font">Emergency SOS</h2>
+                        </div>
+                        
+                        <div className="bg-red-50 p-4 rounded-xl mb-6 border border-red-100">
+                            <p className="text-sm text-red-800 font-semibold mb-2">This will alert your trusted contacts with your current location.</p>
+                            <button onClick={triggerSOS} disabled={sending || sent || contacts.length === 0} className="w-full bg-red-600 text-white py-3 rounded-xl font-bold hover:bg-red-700 disabled:opacity-50">
+                                {sending ? 'Sending Alert...' : sent ? 'Alert Sent ✓' : 'Trigger SOS Alert Now'}
+                            </button>
+                        </div>
+
+                        <div>
+                            <h3 className="font-bold text-sm text-navy-900 mb-2">Trusted Contacts</h3>
+                            <ul className="space-y-2 mb-4 max-h-32 overflow-y-auto">
+                                {contacts.length === 0 && <li className="text-sm text-slate-400">No contacts added.</li>}
+                                {contacts.map((c, i) => <li key={i} className="text-sm bg-gray-50 p-2 rounded flex justify-between">{c}</li>)}
+                            </ul>
+                            <form onSubmit={addContact} className="flex gap-2">
+                                <input type="text" value={newContact} onChange={e=>setNewContact(e.target.value)} placeholder="Phone number or Name" className="flex-1 border border-gray-200 text-sm rounded px-3 py-2" />
+                                <button type="submit" className="bg-navy-800 text-white px-4 py-2 rounded text-sm font-bold">Add</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Core Application ---
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+            const [isSOSOpen, setIsSOSOpen] = useState(false);
+            const [activeTab, setActiveTab] = useState('home');
+            const [lang, setLang] = useState('en');
+            const [isCrisisMode, setIsCrisisMode] = useState(false);
+            const [crisisType, setCrisisType] = useState(null);
+            const [userLocation, setUserLocation] = useState(null);
+
+            const t = i18n[lang];
+
+            useEffect(() => {
+                const loggedIn = localStorage.getItem('currentUser');
+                if (loggedIn) setUser(JSON.parse(loggedIn));
+
+                // Pre-fetch location for SOS routing silently
+                if("geolocation" in navigator) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                    }, () => {}, {timeout: 5000});
+                }
+            }, []);
+
+            return (
+                <div className="min-h-screen flex flex-col relative">
+                    <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} setUser={setUser} lang={lang} />
+                    <SOSModal isOpen={isSOSOpen} onClose={() => setIsSOSOpen(false)} location={userLocation} />
+                    
+                    {/* Floating SOS */}
+                    <button onClick={() => setIsSOSOpen(true)} className="fixed bottom-6 right-6 z-50 bg-red-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center font-bold text-lg hover:scale-110 transition-transform">
+                        SOS
+                    </button>
+
+                    <nav className="bg-white border-b border-gray-100 sticky top-0 z-40">
+                        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-3 font-bold text-xl heading-font text-navy-900 cursor-pointer" onClick={() => setActiveTab('home')}>
+                                <Icons.Heart />
+                                <div>
+                                    <div className="leading-tight">Here for You</div>
+                                    <div className="text-[10px] text-slate-400 font-sans tracking-wide uppercase">CrisisBridge AI</div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-4 text-sm font-semibold text-slate-600 flex-wrap justify-center">
+                                <button onClick={() => setActiveTab('home')} className={activeTab === 'home' ? 'text-navy-900 border-b-2 border-navy-900' : ''}>{t.home}</button>
+                                <button onClick={() => setActiveTab('chat')} className={`flex items-center gap-1 ${activeTab === 'chat' ? 'text-navy-900 border-b-2 border-navy-900' : ''}`}><Icons.Sparkles/> {t.chat}</button>
+                                <button onClick={() => setActiveTab('location')} className={activeTab === 'location' ? 'text-navy-900 border-b-2 border-navy-900' : ''}>{t.location}</button>
+                                <button onClick={() => setActiveTab('resources')} className={activeTab === 'resources' ? 'text-navy-900 border-b-2 border-navy-900' : ''}>{t.resources}</button>
+                                <button onClick={() => setActiveTab('iot')} className={activeTab === 'iot' ? 'text-navy-900 border-b-2 border-navy-900' : ''}>{t.iot}</button>
+                            </div>
+                            
+                            <div className="flex gap-3 items-center">
+                                <select value={lang} onChange={(e) => setLang(e.target.value)} className="text-sm bg-gray-50 border border-gray-200 rounded px-2 py-1 outline-none">
+                                    <option value="en">EN</option>
+                                    <option value="hi">HI</option>
+                                </select>
+                                {user ? (
+                                    <span className="text-sm font-semibold text-slate-600">{user.email.split('@')[0]}</span>
+                                ) : (
+                                    <button onClick={() => setIsAuthModalOpen(true)} className="text-sm font-semibold text-navy-800">{t.signIn}</button>
+                                )}
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="flex-1 flex flex-col relative">
+                        {isCrisisMode && (
+                            <div className="bg-rose-50 border-b border-red-200 p-4 text-center text-red-600 font-bold flex flex-col items-center justify-center gap-2">
+                                <div className="flex items-center gap-2"><Icons.Alert/> {t.crisisAlert}</div>
+                                <button onClick={() => setIsSOSOpen(true)} className="bg-red-600 text-white px-4 py-1 rounded text-sm hover:bg-red-700">Trigger SOS</button>
+                            </div>
+                        )}
+
+                        {activeTab === 'home' && <HomeView t={t} setActiveTab={setActiveTab} />}
+                        {activeTab === 'chat' && <ChatSupportView t={t} lang={lang} isCrisisMode={isCrisisMode} setIsCrisisMode={setIsCrisisMode} setCrisisType={setCrisisType} />}
+                        {activeTab === 'location' && <LocationView t={t} crisisType={crisisType} userLocation={userLocation} />}
+                        {activeTab === 'resources' && <ResourcesView t={t} setActiveTab={setActiveTab} />}
+                        {activeTab === 'iot' && <IoTDashboardView t={t} />}
+                    </main>
+                </div>
+            );
+        };
+
+        // --- Home View Component ---
+        const HomeView = ({ t, setActiveTab }) => (
+            <div className="max-w-7xl mx-auto w-full px-6 py-12 flex-1 flex flex-col">
+                <div className="flex flex-col md:flex-row items-center gap-12 mb-16">
+                    <div className="flex-1 text-center md:text-left">
+                        <h1 className="text-5xl md:text-7xl font-extrabold mb-4 heading-font text-navy-900 tracking-tight">
+                            {t.title1}<br/><span className="text-coral-400">{t.title2}</span>
+                        </h1>
+                        <p className="text-lg text-slate-500 mb-8 leading-relaxed">{t.subtitle}</p>
+                        <div className="flex gap-4 justify-center md:justify-start">
+                            <button onClick={() => setActiveTab('chat')} className="bg-coral-400 text-white px-8 py-3.5 rounded-full font-bold shadow-md">{t.getHelp}</button>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-navy-800 rounded-2xl p-8 flex flex-col md:flex-row justify-between items-center text-white shadow-lg">
+                    <div className="mb-6 md:mb-0">
+                        <h3 className="text-2xl font-bold heading-font">{t.crisisTitle}</h3>
+                        <p className="text-slate-300 text-sm">{t.crisisSub}</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <button onClick={() => alert("Dialing...")} className="bg-white/10 px-6 py-3 rounded-xl font-bold">{t.call}</button>
+                        <button onClick={() => alert("Texting...")} className="bg-white/10 px-6 py-3 rounded-xl font-bold">{t.text}</button>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- Chat Support View (Gemini + Voice + Crisis Detection) ---
+        const ChatSupportView = ({ t, lang, isCrisisMode, setIsCrisisMode, setCrisisType }) => {
+            const [chatMessages, setMessages] = useState([{ role: 'model', text: "Hi, I am the AI Crisis Assistant. How can I help you right now?", time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }]);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [listening, setListening] = useState(false);
+            const chatEndRef = useRef(null);
+
+            useEffect(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), [chatMessages]);
+
+            const handleVoice = () => {
+                const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if(!SpeechRec) return alert("Speech recognition not supported in this browser.");
+                const rec = new SpeechRec();
+                rec.lang = lang === 'en' ? 'en-US' : 'hi-IN';
+                rec.onstart = () => setListening(true);
+                rec.onend = () => setListening(false);
+                rec.onresult = (e) => setInput(prev => prev + " " + e.results[0][0].transcript);
+                rec.start();
+            };
+
+            const sendMessage = async (text) => {
+                if(!text.trim() || loading) return;
+                const userMsg = text.trim();
+                
+                // Real-time Crisis Detection
+                const detected = analyzeCrisis(userMsg);
+                if(detected) {
+                    setIsCrisisMode(true);
+                    setCrisisType(detected);
+                }
+
+                setMessages(p => [...p, { role: 'user', text: userMsg, time: new Date().toLocaleTimeString() }]);
+                setInput('');
+                setLoading(true);
+
+                try {
+                    const contents = chatMessages.map(msg => ({ role: msg.role === 'model' ? 'model' : 'user', parts: [{ text: msg.text }] }));
+                    
+                    let systemPrompt = `You are a crisis assistant. User says: ${userMsg}`;
+                    if(lang === 'hi') systemPrompt += " YOU MUST REPLY ENTIRELY IN HINDI.";
+                    
+                    if(detected || isCrisisMode) {
+                        systemPrompt += " EMERGENCY DETECTED. Provide STRICTLY structured, numbered, step-by-step guidance. Be extremely calm, clear, and actionable. Suggest seeking physical help immediately.";
+                    }
+
+                    contents.push({ role: 'user', parts: [{ text: systemPrompt }]});
+
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents })
+                    });
+                    
+                    const data = await res.json();
+                    if(data.error) throw new Error(data.error.message);
+                    
+                    setMessages(p => [...p, { role: 'model', text: data.candidates[0].content.parts[0].text, time: new Date().toLocaleTimeString() }]);
+                } catch (error) {
+                    setMessages(p => [...p, { role: 'model', text: `Connection Error. Please call 911 or 988 immediately.`, time: new Date().toLocaleTimeString() }]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className={`max-w-4xl mx-auto w-full px-6 py-8 flex-1 flex flex-col h-[calc(100vh-140px)]`}>
+                    <div className={`bg-white rounded-2xl chat-shadow flex flex-col h-full overflow-hidden ${isCrisisMode ? 'crisis-bg' : 'border border-gray-100'}`}>
+                        <div className={`${isCrisisMode ? 'bg-red-600' : 'bg-navy-900'} text-white p-4 flex justify-between items-center transition-colors`}>
+                            <div className="flex items-center gap-3 font-bold"><Icons.Sparkles /> AI Assistant</div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+                            {chatMessages.map((msg, i) => (
+                                <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                    <div className={`max-w-[85%] p-4 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-navy-800 text-white rounded-tr-none' : 'bg-white border border-gray-200 text-navy-900 rounded-tl-none card-shadow whitespace-pre-wrap'}`}>
+                                        {msg.text}
+                                    </div>
+                                </div>
+                            ))}
+                            {loading && <div className="text-slate-400 text-sm animate-pulse">Typing...</div>}
+                            <div ref={chatEndRef} />
+                        </div>
+                        <div className="p-4 bg-white border-t border-gray-100">
+                            <form onSubmit={e => { e.preventDefault(); sendMessage(input); }} className="flex gap-2">
+                                <button type="button" onClick={handleVoice} className={`p-3 rounded-full ${listening ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-slate-500 hover:bg-gray-200'}`}>
+                                    <Icons.Mic />
+                                </button>
+                                <input type="text" value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message..." className="bg-gray-50 flex-1 rounded-full px-4 text-sm focus:outline-none focus:ring-1 focus:ring-navy-500" disabled={loading}/>
+                                <button type="submit" disabled={!input.trim() || loading} className="bg-navy-800 text-white p-3 rounded-full"><Icons.Send /></button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Location View (Smart Geo-Aware) ---
+        const LocationView = ({ t, crisisType, userLocation }) => {
+            const defaultQuery = crisisType === 'mental' || crisisType === 'panic' ? 'psychiatrist+or+therapist' : 'hospital+emergency';
+            const [manualQuery, setManualQuery] = useState(null);
+            const [routeMode, setRouteMode] = useState(false);
+            
+            const activeQuery = manualQuery || defaultQuery;
+            
+            // If routeMode is true, embed the directions view. Otherwise, embed the search view.
+            const mapUrl = routeMode 
+                ? `https://maps.google.com/maps?f=d&source=s_d&saddr=&daddr=${activeQuery}&hl=en&output=embed`
+                : (userLocation 
+                    ? `https://maps.google.com/maps?q=${activeQuery}&ll=${userLocation.lat},${userLocation.lng}&z=14&output=embed`
+                    : `https://maps.google.com/maps?q=${activeQuery}&t=&z=13&output=embed`);
+
+            const quickLinks = [
+                { label: '🏥 Hospital', query: 'hospital+emergency' },
+                { label: '🚓 Police Station', query: 'police+station' },
+                { label: '🚒 Fire Station', query: 'fire+station' },
+                { label: '⚕️ Pharmacy', query: 'pharmacy' },
+                { label: '🧠 Therapist/Psychiatrist', query: 'psychiatrist+or+therapist' },
+                { label: '🩹 Urgent Care', query: 'urgent+care+clinic' },
+                { label: '🏠 Safe House/Shelter', query: 'emergency+shelter+or+safe+house' },
+                { label: '🫂 Rehab Center', query: 'rehabilitation+center' }
+            ];
+
+            return (
+                <div className="max-w-7xl mx-auto w-full px-6 py-12 flex flex-col md:flex-row gap-8">
+                    <div className="flex-1">
+                        <h2 className="text-3xl font-bold heading-font text-navy-900 mb-4 flex items-center gap-2"><Icons.MapPin /> {t.location}</h2>
+                        {crisisType && !manualQuery && <div className="bg-orange-50 text-orange-800 p-4 rounded-xl mb-4 border border-orange-200 text-sm font-semibold">Smart Routing: Filtering for {defaultQuery.replace(/\+/g, ' ')} based on your chat.</div>}
+                        
+                        <div className="bg-white p-6 rounded-2xl card-shadow border border-gray-100 mb-6">
+                            <h4 className="font-bold text-navy-900 mb-3">Quick Emergency Search</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {quickLinks.map((link, i) => (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => { setManualQuery(link.query); setRouteMode(false); }}
+                                        className={`px-3 py-2 rounded-lg text-sm font-bold border transition-colors ${activeQuery === link.query ? 'bg-navy-800 text-white border-navy-800' : 'bg-white text-navy-800 border-gray-200 hover:bg-sky-50'}`}
+                                    >
+                                        {link.label}
+                                    </button>
+                                ))}
+                                {manualQuery && <button onClick={() => { setManualQuery(null); setRouteMode(false); }} className="px-3 py-2 rounded-lg text-sm font-bold text-slate-500 hover:text-slate-800 underline">Reset</button>}
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl card-shadow border border-gray-100">
+                            <div>
+                                <h4 className="font-bold text-navy-900 mb-2">Navigate to {activeQuery.replace(/\+/g, ' ')}</h4>
+                                <p className="text-sm text-slate-500 mb-4">Click below to load the route directly into the map on this screen.</p>
+                                <button onClick={() => setRouteMode(true)} className="bg-coral-500 text-white px-6 py-3 rounded-xl font-bold text-sm inline-block hover:bg-coral-600 transition-colors shadow-md">
+                                    Show Route on Map
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex-1 bg-gray-200 rounded-2xl overflow-hidden min-h-[400px]">
+                        <iframe width="100%" height="100%" frameBorder="0" src={mapUrl} allowFullScreen></iframe>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Resources View Component ---
+        const ResourcesView = ({ t, setActiveTab }) => {
+            const [selectedResource, setSelectedResource] = useState(null);
+
+            const resources = [
+                { 
+                    id: 'coping',
+                    icon: '🌱', 
+                    title: 'Coping Strategies', 
+                    desc: 'Techniques to help manage stress and emotions',
+                    content: (
+                        <div className="space-y-6 text-slate-600">
+                            <h3 className="text-xl font-bold text-navy-900 mb-4">Immediate Coping Strategies</h3>
+                            
+                            <div className="bg-sky-50 p-6 rounded-xl border border-sky-100">
+                                <h4 className="font-bold text-navy-800 mb-3 text-lg">1. The 4-7-8 Breathing Technique</h4>
+                                <p className="mb-3 text-sm">This technique acts as a natural tranquilizer for the nervous system.</p>
+                                <ul className="list-disc pl-5 space-y-2 text-sm font-medium">
+                                    <li>Breathe in quietly through your nose for <strong>4 seconds</strong>.</li>
+                                    <li>Hold your breath for <strong>7 seconds</strong>.</li>
+                                    <li>Exhale completely through your mouth, making a whoosh sound, for <strong>8 seconds</strong>.</li>
+                                    <li>Repeat this cycle 4 times.</li>
+                                </ul>
+                            </div>
+
+                            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                                <h4 className="font-bold text-navy-800 mb-3 text-lg">2. The 5-4-3-2-1 Grounding Method</h4>
+                                <p className="mb-3 text-sm">Use this to bring yourself back to the present moment when feeling overwhelmed.</p>
+                                <p className="mb-3 font-semibold text-navy-700">Look around you and identify:</p>
+                                <ul className="list-none space-y-3 text-sm">
+                                    <li className="flex gap-2">👀 <strong>5</strong> things you can see.</li>
+                                    <li className="flex gap-2">✋ <strong>4</strong> things you can physically feel.</li>
+                                    <li className="flex gap-2">👂 <strong>3</strong> things you can hear.</li>
+                                    <li className="flex gap-2">👃 <strong>2</strong> things you can smell.</li>
+                                    <li className="flex gap-2">👅 <strong>1</strong> thing you can taste.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    )
+                },
+                { 
+                    id: 'anxiety',
+                    icon: '🧠', 
+                    title: 'Anxiety & Depression', 
+                    desc: 'Information and support for common concerns',
+                    content: (
+                        <div className="space-y-6 text-slate-600">
+                            <h3 className="text-xl font-bold text-navy-900 mb-2">Understanding Anxiety & Depression</h3>
+                            <p className="text-sm leading-relaxed mb-6">It is completely normal to feel overwhelmed, sad, or anxious. Recognizing the signs is the courageous first step to getting the help you deserve.</p>
+                            
+                            <div className="grid sm:grid-cols-2 gap-4">
+                                <div className="bg-white p-5 rounded-xl border border-gray-200 card-shadow">
+                                    <h4 className="font-bold text-coral-500 mb-3 border-b pb-2">Signs of Anxiety</h4>
+                                    <ul className="list-disc pl-4 space-y-2 text-sm">
+                                        <li>Racing thoughts or constant worry</li>
+                                        <li>Rapid heartbeat or shortness of breath</li>
+                                        <li>Difficulty sleeping or concentrating</li>
+                                        <li>Feeling a sense of impending panic</li>
+                                    </ul>
+                                </div>
+                                <div className="bg-white p-5 rounded-xl border border-gray-200 card-shadow">
+                                    <h4 className="font-bold text-navy-500 mb-3 border-b pb-2">Signs of Depression</h4>
+                                    <ul className="list-disc pl-4 space-y-2 text-sm">
+                                        <li>Persistent feelings of sadness or emptiness</li>
+                                        <li>Loss of interest in activities you once enjoyed</li>
+                                        <li>Fatigue or significant changes in appetite</li>
+                                        <li>Feelings of worthlessness</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                },
+                { 
+                    id: 'support',
+                    icon: '🤝', 
+                    title: 'Support for Loved Ones', 
+                    desc: 'How to help someone who is struggling',
+                    content: (
+                        <div className="space-y-6 text-slate-600">
+                            <h3 className="text-xl font-bold text-navy-900 mb-2">How to Help a Loved One</h3>
+                            <p className="text-sm mb-6">Supporting someone in crisis can be challenging but incredibly impactful. Here is how you can be there for them safely.</p>
+                            
+                            <ul className="space-y-5">
+                                <li className="flex gap-4 items-start">
+                                    <div className="bg-coral-400 text-white w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold shadow-md">1</div>
+                                    <div>
+                                        <strong className="text-navy-900 block mb-1">Listen without judgment</strong>
+                                        <p className="text-sm">Sometimes people just need to be heard. Avoid trying to "fix" their problems immediately. Validate their feelings by saying things like, "I hear you, and that sounds really hard."</p>
+                                    </div>
+                                </li>
+                                <li className="flex gap-4 items-start">
+                                    <div className="bg-coral-400 text-white w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold shadow-md">2</div>
+                                    <div>
+                                        <strong className="text-navy-900 block mb-1">Ask directly</strong>
+                                        <p className="text-sm">If you are worried, it's okay to ask, "Are you thinking about suicide?" It does not plant the idea in their head; it shows you care enough to ask the hard questions.</p>
+                                    </div>
+                                </li>
+                                <li className="flex gap-4 items-start">
+                                    <div className="bg-coral-400 text-white w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold shadow-md">3</div>
+                                    <div>
+                                        <strong className="text-navy-900 block mb-1">Help them connect</strong>
+                                        <p className="text-sm">Guide them to professional help. Offer to sit with them while they call the 988 lifeline or use the Gemini AI Chat on this platform.</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    )
+                },
+                { 
+                    id: 'local',
+                    icon: '📍', 
+                    title: 'Local Resources', 
+                    desc: 'Find local support services in your area', 
+                    action: () => setActiveTab('location') 
+                },
+                { 
+                    id: 'selfcare',
+                    icon: '🧘', 
+                    title: 'Self-Care Tools', 
+                    desc: 'Tips and tools for your well-being',
+                    content: (
+                        <div className="space-y-6 text-slate-600">
+                            <h3 className="text-xl font-bold text-navy-900 mb-2">Daily Self-Care Essentials</h3>
+                            <p className="text-sm mb-6">Self-care isn't selfish; it's necessary maintenance for your mental health.</p>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="bg-orange-50 p-5 rounded-xl border border-orange-100 shadow-sm">
+                                    <h4 className="font-bold text-orange-800 text-lg mb-2">🏃 Physical Health</h4>
+                                    <p className="text-sm leading-relaxed">Aim for 7-9 hours of sleep, stay hydrated, and move your body for at least 20 minutes a day. Physical movement directly impacts brain chemistry.</p>
+                                </div>
+                                <div className="bg-purple-50 p-5 rounded-xl border border-purple-100 shadow-sm">
+                                    <h4 className="font-bold text-purple-800 text-lg mb-2">📱 Digital Detox</h4>
+                                    <p className="text-sm leading-relaxed">Set boundaries with news and social media. Try a strict screen-free hour before bedtime to improve your sleep quality.</p>
+                                </div>
+                                <div className="bg-emerald-50 p-5 rounded-xl border border-emerald-100 shadow-sm">
+                                    <h4 className="font-bold text-emerald-800 text-lg mb-2">📝 Journaling</h4>
+                                    <p className="text-sm leading-relaxed">Write down three things you are grateful for each morning. Externalizing your thoughts can prevent them from spiraling.</p>
+                                </div>
+                                <div className="bg-rose-50 p-5 rounded-xl border border-rose-100 shadow-sm">
+                                    <h4 className="font-bold text-rose-800 text-lg mb-2"> boundaries</h4>
+                                    <p className="text-sm leading-relaxed">Learn to say "no" to protect your peace. It is okay to decline invitations or requests when you are feeling drained.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            ];
+
+            const renderContent = () => {
+                const resource = resources.find(r => r.id === selectedResource);
+                if (!resource) return null;
+
+                return (
+                    <div className="bg-white rounded-2xl border border-gray-100 card-shadow overflow-hidden mb-10 p-8 transition-all">
+                        <button onClick={() => setSelectedResource(null)} className="text-sm font-bold text-navy-500 hover:text-navy-900 mb-8 flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full border border-gray-200 hover:bg-gray-100 transition-colors">
+                            <span className="rotate-180 inline-block"><Icons.ChevronRight /></span> Back to Resources
+                        </button>
+                        <div className="flex items-center gap-4 mb-8 pb-6 border-b border-gray-100">
+                            <div className="w-16 h-16 bg-sky-50 rounded-2xl flex items-center justify-center text-3xl shadow-inner">{resource.icon}</div>
+                            <div>
+                                <h2 className="text-2xl font-bold heading-font text-navy-900">{resource.title}</h2>
+                                <p className="text-slate-500 text-sm mt-1">{resource.desc}</p>
+                            </div>
+                        </div>
+                        <div className="animate-fade-in">
+                            {resource.content}
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto w-full px-6 py-12">
+                    {!selectedResource ? (
+                        <div className="animate-fade-in">
+                            <h2 className="text-3xl font-bold heading-font text-navy-900 mb-2">{t.resources}</h2>
+                            <p className="text-slate-500 mb-8">Helpful information and tools to support you and your well-being.</p>
+                            
+                            <div className="bg-white border border-gray-200 rounded-full flex items-center px-4 py-3 mb-10 card-shadow focus-within:border-navy-500 focus-within:ring-1 focus-within:ring-navy-500 transition-all">
+                                <Icons.Search />
+                                <input type="text" placeholder="Search resources..." className="bg-transparent flex-1 ml-3 focus:outline-none text-sm text-navy-900" />
+                            </div>
+
+                            <div className="bg-white rounded-2xl border border-gray-100 card-shadow overflow-hidden mb-10">
+                                {resources.map((res, i) => (
+                                    <div key={i} onClick={res.action ? res.action : () => setSelectedResource(res.id)} className={`flex items-center justify-between p-6 hover:bg-sky-50 cursor-pointer transition-colors group ${i !== resources.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                                        <div className="flex items-center gap-5">
+                                            <div className="w-12 h-12 bg-gray-50 group-hover:bg-white rounded-xl flex items-center justify-center text-xl shadow-sm transition-colors">{res.icon}</div>
+                                            <div>
+                                                <h4 className="font-bold text-navy-900 group-hover:text-coral-500 transition-colors">{res.title}</h4>
+                                                <p className="text-xs text-slate-500 mt-1">{res.desc}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-slate-300 group-hover:text-coral-500 transition-colors transform group-hover:translate-x-1"><Icons.ChevronRight /></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        renderContent()
+                    )}
+
+                    <div className="bg-sky-50 rounded-2xl p-6 flex flex-col sm:flex-row justify-between items-center border border-sky-100 mt-8 shadow-sm">
+                        <div className="text-center sm:text-left mb-4 sm:mb-0">
+                            <h4 className="font-bold text-navy-900">Still need help?</h4>
+                            <p className="text-sm text-slate-600">Our counselors are here for you 24/7.</p>
+                        </div>
+                        <button onClick={() => setActiveTab('chat')} className="bg-navy-900 text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-navy-800 transition-colors shadow-md whitespace-nowrap">
+                            Chat Now →
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- IoT & Security Dashboard View ---
+        const IoTDashboardView = ({ t }) => {
+            const [sensors, setSensors] = useState([
+                { id: 1, name: 'Living Room CCTV', type: 'cctv', status: 'active', aiDetect: 'clear' },
+                { id: 2, name: 'Kitchen Smoke Detector', type: 'smoke', status: 'active', aiDetect: 'clear' }
+            ]);
+            const [autoEmergency, setAutoEmergency] = useState(true);
+
+            const triggerSimulation = () => {
+                setSensors(sensors.map(s => s.id === 2 ? { ...s, aiDetect: 'smoke_detected' } : s));
+                setTimeout(() => {
+                    alert("Vertex AI Model Detected Anomaly: Smoke in Kitchen!\n\nTriggering SMS/Email API Alerts to contacts...\nNotifying Emergency Services (911) automatically via IoT hook...");
+                }, 500);
+            };
+
+            return (
+                <div className="max-w-7xl mx-auto w-full px-6 py-12 flex-1 flex flex-col gap-8">
+                    <div className="flex flex-col md:flex-row gap-6">
+                        
+                        {/* IoT Sensors Panel */}
+                        <div className="flex-1 bg-white rounded-2xl p-6 card-shadow border border-gray-100">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold heading-font text-navy-900 flex items-center gap-2">
+                                    <Icons.Alert /> Smart IoT Monitors
+                                </h2>
+                                <button onClick={triggerSimulation} className="bg-orange-100 text-orange-800 px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-200 transition-colors">
+                                    Simulate Fire Event
+                                </button>
+                            </div>
+                            
+                            <p className="text-slate-500 text-sm mb-6">Sensors monitor for physical threats (fire, smoke, break-ins via CCTV) and call emergency services before human reaction time.</p>
+                            
+                            <div className="space-y-4">
+                                {sensors.map(sensor => (
+                                    <div key={sensor.id} className={`p-4 rounded-xl border ${sensor.aiDetect === 'smoke_detected' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'} flex justify-between items-center transition-colors`}>
+                                        <div>
+                                            <div className="font-bold text-navy-900">{sensor.name}</div>
+                                            <div className="text-xs text-slate-500 uppercase tracking-wider mt-1">{sensor.type} Sensor</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-sm font-semibold text-emerald-600">Status: {sensor.status}</div>
+                                            <div className={`text-xs mt-1 ${sensor.aiDetect === 'smoke_detected' ? 'text-red-600 font-bold animate-pulse' : 'text-slate-400'}`}>
+                                                AI State: {sensor.aiDetect}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Integration & AI Panel */}
+                        <div className="flex-1 space-y-6">
+                            <div className="bg-white rounded-2xl p-6 card-shadow border border-gray-100">
+                                <h3 className="font-bold text-navy-900 mb-4 border-b pb-2">Alert APIs & Emergency Integration</h3>
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-slate-700">SMS Gateway (Twilio/AWS SNS)</span>
+                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">Connected</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-slate-700">Email API (SendGrid)</span>
+                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">Connected</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-slate-700">Emergency Services Dispatch</span>
+                                        <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">Live</span>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                        <span className="text-sm font-bold text-navy-900">Auto-Call Emergency on AI Detect</span>
+                                        <input type="checkbox" checked={autoEmergency} onChange={e => setAutoEmergency(e.target.checked)} className="w-5 h-5 accent-navy-600" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-navy-900 text-white rounded-2xl p-6 card-shadow">
+                                <div className="flex items-center gap-2 mb-4 text-sky-100">
+                                    <Icons.Sparkles /> <h3 className="font-bold">Vertex AI Models</h3>
+                                </div>
+                                <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                                    Models are trained and deployed via Google Cloud Vertex AI for real-time edge inference on CCTV feeds and sensor telemetry.
+                                </p>
+                                <div className="bg-navy-800 rounded-lg p-4 text-xs text-slate-300 font-mono leading-loose border border-navy-700">
+                                    Endpoint: us-central1-aiplatform.googleapis.com<br/>
+                                    Model: vision-anomaly-detect-v2<br/>
+                                    Status: <span className="text-emerald-400 font-bold">Deployed & Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>

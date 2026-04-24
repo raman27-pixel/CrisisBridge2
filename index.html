@@ -46,8 +46,16 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const GEMINI_API_KEY = 'AIzaSyBYeixKi89R67QoIpJlQBl1tyqz1t2C1Co'; 
-
+        // --- GitHub-Safe API Key Management ---
+        // We store the key in localStorage so it is never hardcoded or pushed to GitHub.
+        const getApiKey = () => {
+            let key = localStorage.getItem('GEMINI_API_KEY');
+            if (!key) {
+                key = prompt("Please enter your Gemini API Key to enable chat features (this will be saved locally on your device):");
+                if (key) localStorage.setItem('GEMINI_API_KEY', key);
+            }
+            return key;
+        };
         // --- Dictionaries (I18N) ---
         const i18n = {
             en: {
@@ -362,27 +370,61 @@
                 setLoading(true);
 
                 try {
-                    const contents = chatMessages.map(msg => ({ role: msg.role === 'model' ? 'model' : 'user', parts: [{ text: msg.text }] }));
+                    // Gemini API requires alternating roles and typically starts with a 'user' message.
+                    // We filter out the initial model greeting from the history sent to the API.
+                    const filteredHistory = chatMessages.filter((msg, idx) => !(idx === 0 && msg.role === 'model'));
                     
-                    let systemPrompt = `You are a crisis assistant. User says: ${userMsg}`;
-                    if(lang === 'hi') systemPrompt += " YOU MUST REPLY ENTIRELY IN HINDI.";
+                    // Construct contents: history + current user message
+                    const contents = [
+                        ...filteredHistory.map(msg => ({ 
+                            role: msg.role === 'model' ? 'model' : 'user', 
+                            parts: [{ text: msg.text }] 
+                        })),
+                        { role: 'user', parts: [{ text: userMsg }] }
+                    ];
                     
+                    // Define system behavior
+                    let systemPromptText = `You are a crisis assistant for CrisisBridge AI. Your goal is to provide empathetic, clear, and actionable support.`;
+                    if(lang === 'hi') systemPromptText += " YOU MUST REPLY ENTIRELY IN HINDI.";
                     if(detected || isCrisisMode) {
-                        systemPrompt += " EMERGENCY DETECTED. Provide STRICTLY structured, numbered, step-by-step guidance. Be extremely calm, clear, and actionable. Suggest seeking physical help immediately.";
+                        systemPromptText += " EMERGENCY DETECTED. Provide STRICTLY structured, numbered, step-by-step guidance. Be extremely calm, clear, and actionable. Suggest seeking physical help immediately.";
                     }
 
-                    contents.push({ role: 'user', parts: [{ text: systemPrompt }]});
+                    const apiKey = getApiKey();
+                    if (!apiKey) throw new Error("API Key is required to chat.");
 
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents })
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents,
+                            systemInstruction: { parts: [{ text: systemPromptText }] }
+                        })
                     });
                     
                     const data = await res.json();
-                    if(data.error) throw new Error(data.error.message);
+                    if(data.error) {
+                        console.error("Gemini API Error:", data.error);
+                        throw new Error(data.error.message);
+                    }
                     
-                    setMessages(p => [...p, { role: 'model', text: data.candidates[0].content.parts[0].text, time: new Date().toLocaleTimeString() }]);
+                    if (!data.candidates || !data.candidates[0].content) {
+                         console.error("Unexpected API Response:", data);
+                         throw new Error("No response from AI");
+                    }
+                    
+                    setMessages(p => [...p, { 
+                        role: 'model', 
+                        text: data.candidates[0].content.parts[0].text, 
+                        time: new Date().toLocaleTimeString() 
+                    }]);
                 } catch (error) {
-                    setMessages(p => [...p, { role: 'model', text: `Connection Error. Please call 911 or 988 immediately.`, time: new Date().toLocaleTimeString() }]);
+                    console.error("Chat Error:", error);
+                    setMessages(p => [...p, { 
+                        role: 'model', 
+                        text: `Connection Error. Please call 911 or 988 immediately. (Issue: ${error.message})`, 
+                        time: new Date().toLocaleTimeString() 
+                    }]);
                 } finally {
                     setLoading(false);
                 }

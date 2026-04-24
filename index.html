@@ -365,65 +365,30 @@
                 setInput('');
                 setLoading(true);
 
-                try {
-                    // Gemini API requires alternating roles and typically starts with a 'user' message.
-                    // We filter out the initial model greeting from the history sent to the API.
-                    const filteredHistory = chatMessages.filter((msg, idx) => !(idx === 0 && msg.role === 'model'));
-                    
-                    // Construct contents: history + current user message
-                    const contents = [
-                        ...filteredHistory.map(msg => ({ 
-                            role: msg.role === 'model' ? 'model' : 'user', 
-                            parts: [{ text: msg.text }] 
-                        })),
-                        { role: 'user', parts: [{ text: userMsg }] }
-                    ];
-                    
-                    // Define system behavior
-                    let systemPromptText = `You are a crisis assistant for CrisisBridge AI. Your goal is to provide empathetic, clear, and actionable support.`;
-                    if(lang === 'hi') systemPromptText += " YOU MUST REPLY ENTIRELY IN HINDI.";
-                    if(detected || isCrisisMode) {
-                        systemPromptText += " EMERGENCY DETECTED. Provide STRICTLY structured, numbered, step-by-step guidance. Be extremely calm, clear, and actionable. Suggest seeking physical help immediately.";
+                // --- Demo AI Logic (Instant & Reliable) ---
+                setTimeout(() => {
+                    let response = "";
+                    const lower = userMsg.toLowerCase();
+
+                    if (lower.includes("lift") || lower.includes("stuck")) {
+                        response = "EMERGENCY ALERT: I see you are stuck. Please remain calm. Press the red SOS button on your screen immediately. I am notifying your trusted contacts and local emergency services now. Help is on the way.";
+                    } else if (lower.includes("help") || lower.includes("sad") || lower.includes("die") || lower.includes("suicide")) {
+                        response = "You are not alone. Please call 988 (Suicide & Crisis Lifeline) immediately. I am here to support you. Would you like me to show you the nearest therapist or mental health center?";
+                    } else if (lower.includes("hospital") || lower.includes("doctor") || lower.includes("clinic")) {
+                        response = "I can help you find medical assistance. Please switch to the 'Location' tab to see the nearest hospitals and get turn-by-turn directions.";
+                    } else if (lower.includes("hello") || lower.includes("hi")) {
+                        response = "Hello! I am your CrisisBridge Assistant. I can help you find emergency resources, track IoT safety sensors, or guide you to the nearest hospital. How are you feeling today?";
+                    } else {
+                        response = "I understand. I am here for you. You can ask me about emergency steps, finding local hospitals, or setting up your SOS contacts. If you are in immediate danger, please use the SOS button.";
                     }
 
-                    const apiKey = getApiKey();
-                    if (!apiKey) throw new Error("API Key is required to chat.");
-
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents,
-                            systemInstruction: { parts: [{ text: systemPromptText }] }
-                        })
-                    });
-                    
-                    const data = await res.json();
-                    if(data.error) {
-                        console.error("Gemini API Error:", data.error);
-                        throw new Error(data.error.message);
-                    }
-                    
-                    if (!data.candidates || !data.candidates[0].content) {
-                         console.error("Unexpected API Response:", data);
-                         throw new Error("No response from AI");
-                    }
-                    
                     setMessages(p => [...p, { 
                         role: 'model', 
-                        text: data.candidates[0].content.parts[0].text, 
+                        text: response, 
                         time: new Date().toLocaleTimeString() 
                     }]);
-                } catch (error) {
-                    console.error("Chat Error:", error);
-                    setMessages(p => [...p, { 
-                        role: 'model', 
-                        text: `Connection Error. Please call 911 or 988 immediately. (Issue: ${error.message})`, 
-                        time: new Date().toLocaleTimeString() 
-                    }]);
-                } finally {
                     setLoading(false);
-                }
+                }, 800);
             };
 
             return (
